@@ -1,332 +1,113 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>居住土地出让价格 · 区县可视化</title>
+<title>土地增长因子 · 区县自变量可视化</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="lib/leaflet.css">
 <style>
-  html,body{margin:0;height:100%;font-family:"Microsoft YaHei","PingFang SC",sans-serif}
-  #app{display:flex;height:100vh;width:100vw}
-  #map{flex:1;min-width:0;height:100%;background:#e8eaed}
-  #side{width:500px;min-width:420px;height:100%;overflow-y:auto;background:#f5f6f8;border-left:1px solid #d0d0d0;padding:12px;box-sizing:border-box}
-  h2{font-size:15px;margin:4px 0 8px;color:#333}
-  .card{background:#fff;border:1px solid #e2e2e2;border-radius:8px;padding:10px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-  .controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:#444}
-  select,input[type=text]{padding:4px 6px;border:1px solid #bbb;border-radius:4px;font-size:13px}
-  .btn{padding:4px 10px;border:1px solid #999;background:#fff;border-radius:4px;cursor:pointer;font-size:13px}
-  .btn:hover{background:#eee}
-  .chart{width:100%;height:320px}
-  .county-tag{display:inline-flex;align-items:center;background:#eef2ff;border:1px solid #b9c6ff;border-radius:14px;padding:1px 8px;margin:2px;font-size:12px;color:#1a2a6c}
-  .county-tag button{border:none;background:none;cursor:pointer;color:#a00;margin-left:4px;font-size:13px;font-weight:bold;padding:0}
-  .hint{font-size:12px;color:#999;margin-top:4px}
-  .stat{font-size:12px;color:#555;margin:4px 0}
-  #legend{margin-top:6px;font-size:12px;color:#555}
-  #legend .bar{height:12px;border-radius:3px;background:linear-gradient(to right,#ffffcc,#ffeda0,#fed976,#fd8d3c,#e31a1c,#800026)}
-  #legend .ticks{display:flex;justify-content:space-between;font-size:11px;color:#777}
+:root{--ink:#24313d;--muted:#647382;--line:#dce3e8;--panel:#f5f7f9;--paper:#fff;--brand:#165d83;--soft:#eaf3f8}
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:var(--ink);background:var(--paper)}
+#app{display:flex;height:100vh;width:100vw}#map{flex:1;min-width:0;height:100%;background:#e8edf0}
+#side{width:530px;min-width:430px;height:100%;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:14px}
+h1{font-size:18px;font-weight:500;margin:0 0 3px}h2{font-size:15px;font-weight:500;margin:0 0 9px}
+.subtitle,.hint{font-size:12px;color:var(--muted);line-height:1.55}.subtitle{margin-bottom:12px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:11px;margin-bottom:12px}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:9px;font-size:13px}.controls:last-child{margin-bottom:0}
+label{display:inline-flex;align-items:center;gap:5px}select,input[type=text]{padding:5px 7px;border:1px solid #b9c3ca;border-radius:4px;background:#fff;color:var(--ink);font-size:13px}
+input[type=range]{width:135px}button{padding:5px 10px;border:1px solid #aab5bc;background:#fff;border-radius:4px;color:var(--ink);cursor:pointer;font-size:13px}
+button:hover{background:#eef2f4}button:focus,select:focus,input:focus{outline:2px solid #6ba4c4;outline-offset:1px}
+.chart{width:100%;height:320px}#comparisonChart{height:360px}#selectedCounties{min-height:24px;margin-bottom:4px}
+.county-tag{display:inline-flex;align-items:center;background:var(--soft);border:1px solid #b7d4e3;border-radius:14px;padding:2px 8px;margin:2px;font-size:12px;color:#174e6b}
+.county-tag button{border:0;background:none;padding:0 0 0 5px;color:#8d2432;font-weight:500}
+#legend{margin-top:8px;font-size:12px;color:var(--muted)}#legend .bar{height:12px;border-radius:2px;background:linear-gradient(to right,#ffffcc,#ffeda0,#fed976,#fd8d3c,#e31a1c,#800026)}
+#legend .ticks{display:flex;justify-content:space-between;font-size:11px;margin-top:2px}.metric-note{padding:7px 9px;background:#edf4f7;border-left:3px solid var(--brand);font-size:12px;color:#455866;line-height:1.5;margin-top:4px}
+.hidden{display:none!important}.leaflet-tooltip{font-family:"Microsoft YaHei","PingFang SC",sans-serif}
+@media(max-width:900px){#app{display:block;height:auto}#map{height:55vh;min-height:390px}#side{width:100%;min-width:0;height:auto;border-left:0;border-top:1px solid var(--line)}}
+@media(max-width:480px){#map{height:48vh;min-height:330px}#side{padding:9px}.card{padding:9px}.chart,#comparisonChart{height:300px}}
 </style>
 </head>
 <body>
-<div id="app">
-  <div id="map"></div>
-  <div id="side">
-    <h2>居住土地出让价格 · 区县可视化（2012–2020）</h2>
-    <div class="card">
-      <div class="controls">
-        <span>年份:</span>
-        <input type="range" id="yearSlider" min="2012" max="2020" step="1" value="2020" style="width:130px">
-        <span id="yearLabel" style="min-width:34px;font-weight:bold">2020</span>
-        <label><input type="checkbox" id="meanMode"> 均值</label>
-        <button class="btn" id="clearSel">清空选择</button>
-      </div>
-      <div class="controls">
-        <span>省份:</span>
-        <select id="provFilter"></select>
-        <input type="text" id="searchBox" placeholder="搜索区县名称…" style="width:150px">
-        <button class="btn" id="searchBtn">定位</button>
-      </div>
-      <div id="legend"><div class="bar"></div><div class="ticks"><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
-      <div class="hint">颜色按地价对数刻度显示；点击地图上的区县 = 加入右侧箱型图对比（最多12个）。</div>
-    </div>
-
-    <div class="card">
-      <h2>① 区县箱型图 —— 所选区县 2012–2020 地价分布</h2>
-      <div id="selCounties" style="min-height:20px"></div>
-      <div id="chart1" class="chart"></div>
-      <div class="hint">每个箱子 = 一个区县 8 年地价的 最小/下四分位/中位/上四分位/最大；散点为各年实际值。</div>
-    </div>
-
-    <div class="card">
-      <h2>② 按年份的区县分布箱型图</h2>
-      <div class="controls">
-        <span>年份:</span>
-        <select id="yearSel2"></select>
-        <span>省份:</span>
-        <select id="provSel2"></select>
-      </div>
-      <div id="chart2" class="chart" style="height:380px"></div>
-      <div class="hint">展示所选年份下，各（所选省份）区县地价的分布；悬停查看详情。</div>
-    </div>
-  </div>
-</div>
-
-<script src="lib/echarts.min.js"></script>
-<script src="lib/leaflet.js"></script>
-<script src="data.js"></script>
+<main id="app">
+  <div id="map" aria-label="区县自变量分布地图"></div>
+  <aside id="side">
+    <h1>土地增长因子 · 区县自变量可视化</h1>
+    <div class="subtitle">地图呈现空间差异，箱线图用于比较区县自变量的中位数、四分位距和极值。</div>
+    <section class="card" aria-label="地图控制">
+      <div class="controls"><label>变量 <select id="metricSelect"><option value="price">居住土地出让价格</option><option value="AccSchool">上学可达性</option><option value="AccWork">上班可达性</option><option value="AccLeisure">休闲商业可达性</option></select></label></div>
+      <div class="controls" id="yearControls"><label>年份 <input type="range" id="yearSlider" min="2012" max="2020" step="1" value="2020"></label><strong id="yearLabel">2020</strong><label><input type="checkbox" id="meanMode"> 2012—2020 均值</label></div>
+      <div class="controls"><label>省份 <select id="provinceFilter"></select></label><input type="text" id="searchBox" placeholder="搜索市或区县" aria-label="搜索市或区县"><button id="searchButton" type="button">定位</button><button id="clearSelection" type="button">清空选择</button></div>
+      <div id="legend" aria-label="地图图例"><div class="bar"></div><div class="ticks"><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+      <div id="metricNote" class="metric-note"></div>
+    </section>
+    <section class="card">
+      <h2 id="distributionTitle">区县离散程度</h2>
+      <div class="controls"><label>统计范围 <select id="distributionProvince"></select></label></div>
+      <div id="distributionChart" class="chart" role="img" aria-label="所选变量的区县分布箱线图"></div>
+      <div class="hint">箱体为 Q1—Q3，中线为中位数，须线为最小值和最大值；散点代表各区县。</div>
+    </section>
+    <section class="card">
+      <h2 id="comparisonTitle">所选区县历年地价离散程度</h2>
+      <div id="selectedCounties"><span class="hint">点击地图选择区县，最多选择 12 个。</span></div>
+      <div id="comparisonChart" class="chart" role="img" aria-label="区县自变量比较箱线图"></div>
+      <div id="comparisonHint" class="hint"></div>
+    </section>
+  </aside>
+</main>
+<script src="lib/echarts.min.js"></script><script src="lib/leaflet.js"></script><script src="data.js"></script>
 <script>
-var GEO = window.GEOJSON;
-var YEARS = [];
-for (var y=2012; y<=2020; y++) YEARS.push(String(y));
-var SELECTED = [];      // array of feature objects
-var selSet = {};
-var MAXSEL = 12;
-var provList = [];
-
-// ---------- helpers ----------
-function props(f){ return f.properties; }
-function yearVal(f, y){ var v = props(f)['P'+y]; return (v==null||isNaN(v)) ? null : v; }
-function meanVal(f){ var s=0,n=0; YEARS.forEach(function(y){ var v=yearVal(f,y); if(v!=null){s+=v;n++;} }); return n? s/n : null; }
-function displayVal(f, mode){ return mode==='mean' ? meanVal(f) : yearVal(f, mode); }
-function quartiles(arr){
-  var a = arr.slice().sort(function(x,y){return x-y;});
-  function q(p){ var pos=(a.length-1)*p, lo=Math.floor(pos), hi=Math.ceil(pos);
-    if(lo===hi) return a[lo]; return a[lo]+(a[hi]-a[lo])*(pos-lo); }
-  return [q(0), q(0.25), q(0.5), q(0.75), q(1)];
-}
-function countyLabel(f){ return props(f)['省'] + ' · ' + props(f)['市'] + ' · ' + props(f)['县']; }
-function shortLabel(f){ return props(f)['县']; }
-
-// color ramp (YlOrRd-ish) with log interpolation
-var STOPS = [[0,'#ffffcc'],[0.2,'#ffeda0'],[0.4,'#fed976'],[0.6,'#fd8d3c'],[0.8,'#e31a1c'],[1,'#800026']];
-function ramp(t){
-  t = Math.max(0, Math.min(1, t));
-  for (var i=1;i<STOPS.length;i++){
-    if (t <= STOPS[i][0]){
-      var t0=STOPS[i-1][0], t1=STOPS[i][0], s=(t-t0)/(t1-t0||1);
-      var c0=STOPS[i-1][1], c1=STOPS[i][1];
-      return lerpColor(c0,c1,s);
-    }
-  }
-  return STOPS[STOPS.length-1][1];
-}
-function hexToRgb(h){ h=h.replace('#',''); return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)]; }
-function lerpColor(a,b,s){ var A=hexToRgb(a),B=hexToRgb(b);
-  return 'rgb('+Math.round(A[0]+(B[0]-A[0])*s)+','+Math.round(A[1]+(B[1]-A[1])*s)+','+Math.round(A[2]+(B[2]-A[2])*s)+')'; }
-
-// ---------- map ----------
-var map = L.map('map').setView([25.5, 114.5], 6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:10, attribution:'© OpenStreetMap'}).addTo(map);
-
-var geoLayer;
-var curMin=null, curMax=null;
-function computeRange(mode){
-  var mn=Infinity, mx=-Infinity;
-  GEO.features.forEach(function(f){
-    var v = displayVal(f, mode);
-    if (v!=null && v>0){ if(v<mn)mn=v; if(v>mx)mx=v; }
-  });
-  if (mn===Infinity) return [1, 10000];
-  return [mn, mx];
-}
-function styleFn(feature){
-  var mode = meanMode.checked ? 'mean' : yearSlider.value;
-  var v = displayVal(feature, mode);
-  var prov = provFilter.value;
-  if (prov!=='全部' && props(feature)['省']!==prov) return {color:'#fff', weight:0.3, fillColor:'#f0f0f0', fillOpacity:0.35};
-  if (v==null) return {color:'#aaa', weight:0.3, fillColor:'#dddddd', fillOpacity:0.5};
-  var t = (Math.log10(v)-Math.log10(curMin))/(Math.log10(curMax)-Math.log10(curMin));
-  return {color:'#666', weight:0.4, fillColor:ramp(t), fillOpacity:0.85};
-}
-function popupHtml(f){
-  var h = '<b>'+countyLabel(f)+'</b><br/>';
-  h += '<table style="font-size:12px">';
-  YEARS.forEach(function(y){ var v=yearVal(f,y); h += '<tr><td>'+y+'</td><td style="text-align:right">'+(v==null?'—':v.toFixed(0))+'</td></tr>'; });
-  var m = meanVal(f);
-  h += '<tr><td><b>均值</b></td><td style="text-align:right"><b>'+(m==null?'—':m.toFixed(0))+'</b></td></tr></table>';
-  return h;
-}
-function rebuildLayer(){
-  if (geoLayer) map.removeLayer(geoLayer);
-  geoLayer = L.geoJSON(GEO, {
-    style: styleFn,
-    onEachFeature: function(feature, layer){
-      layer.on('click', function(){ toggleSelect(feature); });
-      layer.bindTooltip(function(ev){
-        var mode = meanMode.checked ? 'mean' : yearSlider.value;
-        var v = displayVal(feature, mode);
-        return shortLabel(feature) + (v==null?'（无数据）':'：'+v.toFixed(0)+' 元/㎡');
-      }, {sticky:true});
-      layer.bindPopup(popupHtml(feature));
-    }
-  }).addTo(map);
-  updateLegend();
-}
-function updateLegend(){
-  var mode = meanMode.checked ? 'mean' : yearSlider.value;
-  var r = computeRange(mode);
-  curMin=r[0]; curMax=r[1];
-  var spans = document.querySelectorAll('#legend .ticks span');
-  var ticks=[0,0.2,0.4,0.6,0.8,1].map(function(t){ return Math.round(Math.pow(10, Math.log10(curMin)+(Math.log10(curMax)-Math.log10(curMin))*t)); });
-  for (var i=0;i<spans.length;i++) spans[i].textContent = ticks[i].toLocaleString();
-}
-// careful recursion: updateLegend calls rebuildLayer which is fine; rebuildLayer doesn't call updateLegend except we call it manually
-// Simplest: separate recolor and legend
-function recolor(){ if (geoLayer) geoLayer.setStyle(styleFn); }
-
-// ---------- selection ----------
-function toggleSelect(f){
-  var code = props(f)['省']+'|'+props(f)['县'];
-  if (selSet[code]){ removeSelect(code); }
-  else { if (SELECTED.length>=MAXSEL){ alert('最多选择 '+MAXSEL+' 个区县'); return; } SELECTED.push(f); selSet[code]=true; }
-  renderSel(); renderChart1();
-}
-function removeSelect(code){
-  SELECTED = SELECTED.filter(function(x){ return (props(x)['省']+'|'+props(x)['县'])!==code; });
-  delete selSet[code];
-  renderSel(); renderChart1();
-}
-function renderSel(){
-  var box = document.getElementById('selCounties');
-  if (!SELECTED.length){ box.innerHTML = '<span class="hint">尚未选择区县</span>'; return; }
-  box.innerHTML = '';
-  SELECTED.forEach(function(f){
-    var tag = document.createElement('span');
-    tag.className='county-tag';
-    tag.innerHTML = shortLabel(f) + ' <button title="移除">×</button>';
-    tag.querySelector('button').onclick = function(){ removeSelect(props(f)['省']+'|'+props(f)['县']); };
-    box.appendChild(tag);
-  });
-}
-
-// ---------- chart 1: selected counties boxplot ----------
-var chart1 = echarts.init(document.getElementById('chart1'));
-function renderChart1(){
-  if (!SELECTED.length){
-    chart1.setOption({title:{text:'点击地图选择区县后显示', left:'center', top:'middle', textStyle:{fontSize:13,color:'#999',fontWeight:'normal'}}, xAxis:{show:false}, yAxis:{show:false}, series:[]}, true);
-    return;
-  }
-  var cats = [], box = [], scatter = [];
-  SELECTED.forEach(function(f){
-    var vals = YEARS.map(function(y){ return yearVal(f,y); }).filter(function(v){return v!=null;});
-    cats.push(shortLabel(f));
-    box.push(vals.length>=2 ? quartiles(vals) : [vals[0],vals[0],vals[0],vals[0],vals[0]]);
-    vals.forEach(function(v){ scatter.push([cats.length-1, v]); });
-  });
-  chart1.setOption({
-    title:{text:'', left:'center'},
-    tooltip:{trigger:'item', formatter:function(p){
-      var idx = p.dataIndex;
-      if (p.seriesType==='scatter') return cats[Math.round(p.data[0])]+'：'+p.data[1].toFixed(0)+' 元/㎡';
-      if (p.seriesType==='boxplot'){
-        var d=p.data; return '<b>'+cats[idx]+'</b><br/>最小: '+d[0].toFixed(0)+'<br/>Q1: '+d[1].toFixed(0)+'<br/>中位数: '+d[2].toFixed(0)+'<br/>Q3: '+d[3].toFixed(0)+'<br/>最大: '+d[4].toFixed(0);
-      }
-      return '';
-    }},
-    grid:{left:70, right:20, top:30, bottom:60},
-    xAxis:{type:'category', data:cats, axisLabel:{rotate:30, fontSize:10}},
-    yAxis:{type:'value', name:'元/㎡', scale:true},
-    series:[
-      {name:'箱型', type:'boxplot', data:box, boxWidth:['40%','60%'], itemStyle:{color:'#ffeda0', borderColor:'#c06'}},
-      {name:'各年值', type:'scatter', data:scatter, symbolSize:5, itemStyle:{color:'#1f77b4', opacity:0.7}}
-    ]
-  }, true);
-}
-
-// ---------- chart 2: by-year across counties ----------
-var chart2 = echarts.init(document.getElementById('chart2'));
-function renderChart2(){
-  var y = yearSel2.value, prov = provSel2.value;
-  var rows = [];
-  GEO.features.forEach(function(f){
-    if (prov!=='全部' && props(f)['省']!==prov) return;
-    var v = yearVal(f, y);
-    if (v!=null && v>0) rows.push({label: shortLabel(f), full: countyLabel(f), v:v});
-  });
-  rows.sort(function(a,b){ return a.v-b.v; });
-  var cats = rows.map(function(r){return r.label;});
-  var box = rows.map(function(r){ return [r.v,r.v,r.v,r.v,r.v]; });
-  // aggregate boxplot: compute box for the whole group
-  var allVals = rows.map(function(r){return r.v;});
-  var agg = quartiles(allVals);
-  chart2.setOption({
-    title:{text: y+'年 · '+prov+'（'+rows.length+' 个区县）', left:'center', top:0, textStyle:{fontSize:13}},
-    tooltip:{trigger:'item', formatter:function(p){
-      if (p.seriesType==='scatter'){ var r=rows[Math.round(p.data[0])]; return r.full+'<br/>'+y+'年: '+r.v.toFixed(0)+' 元/㎡'; }
-      if (p.seriesType==='boxplot'){
-        var idx = p.dataIndex;
-        if (idx<rows.length){ var r=rows[idx]; return r.full+'：'+r.v.toFixed(0)+' 元/㎡'; }
-        var d=p.data;
-        return '<b>全部区县汇总</b><br/>最小: '+d[0].toFixed(0)+'<br/>Q1: '+d[1].toFixed(0)+'<br/>中位数: '+d[2].toFixed(0)+'<br/>Q3: '+d[3].toFixed(0)+'<br/>最大: '+d[4].toFixed(0);
-      }
-      return '';
-    }},
-    grid:{left:70, right:20, top:34, bottom:40},
-    dataZoom:[{type:'inside'},{type:'slider', height:16, bottom:6}],
-    xAxis:{type:'category', data:cats.concat(['∑汇总']), axisLabel:{show:false}},
-    yAxis:{type:'value', name:'元/㎡', scale:true},
-    series:[
-      {name:'各区县', type:'boxplot', data:box.concat([agg]), boxWidth:['50%','70%'], itemStyle:{color:'#b3cde3', borderColor:'#2c7fb8'}},
-      {name:'点', type:'scatter', data:rows.map(function(r,i){return [i,r.v];}), symbolSize:4, itemStyle:{color:'#888', opacity:0.6}}
-    ]
-  }, true);
-}
-
-// ---------- init ----------
-function initProvFilters(){
-  var s = new Set();
-  GEO.features.forEach(function(f){ s.add(props(f)['省']); });
-  provList = Array.from(s).sort();
-  ['provFilter','provSel2'].forEach(function(id){
-    var sel = document.getElementById(id);
-    var opt = document.createElement('option'); opt.value='全部'; opt.textContent='全部';
-    sel.appendChild(opt);
-    provList.forEach(function(p){ var o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
-  });
-  var ys = document.getElementById('yearSel2');
-  YEARS.slice().reverse().forEach(function(y){ var o=document.createElement('option'); o.value=y; o.textContent=y+' 年'; ys.appendChild(o); });
-  ys.value='2020';
-}
-function init(){
-  initProvFilters();
-  rebuildLayer();
-  map.fitBounds(geoLayer.getBounds().pad(0.05));
-  renderChart1();
-  renderChart2();
-}
-
-document.getElementById('yearSlider').addEventListener('input', function(){
-  document.getElementById('yearLabel').textContent = this.value;
-  recolor(); updateLegendTicksOnly();
-});
-document.getElementById('meanMode').addEventListener('change', function(){ recolor(); updateLegendTicksOnly(); });
-document.getElementById('provFilter').addEventListener('change', recolor);
-document.getElementById('provSel2').addEventListener('change', renderChart2);
-document.getElementById('yearSel2').addEventListener('change', renderChart2);
-document.getElementById('clearSel').addEventListener('click', function(){ SELECTED=[]; selSet={}; renderSel(); renderChart1(); });
-document.getElementById('searchBtn').addEventListener('click', doSearch);
-document.getElementById('searchBox').addEventListener('keydown', function(e){ if(e.key==='Enter') doSearch(); });
-
-function doSearch(){
-  var kw = document.getElementById('searchBox').value.trim();
-  if (!kw) return;
-  var hit = GEO.features.find(function(f){ return props(f)['县'].indexOf(kw)>=0 || props(f)['市'].indexOf(kw)>=0; });
-  if (!hit){ alert('未找到区县：'+kw); return; }
-  map.flyToBounds(L.geoJSON(hit).getBounds().pad(0.3), {maxZoom:10});
-  toggleSelect(hit);
-}
-function updateLegendTicksOnly(){
-  var mode = meanMode.checked ? 'mean' : yearSlider.value;
-  var r = computeRange(mode); curMin=r[0]; curMax=r[1];
-  var spans = document.querySelectorAll('#legend .ticks span');
-  var ticks=[0,0.2,0.4,0.6,0.8,1].map(function(t){ return Math.round(Math.pow(10, Math.log10(curMin)+(Math.log10(curMax)-Math.log10(curMin))*t)); });
-  for (var i=0;i<spans.length;i++) spans[i].textContent = ticks[i].toLocaleString();
-}
-window.addEventListener('resize', function(){ chart1.resize(); chart2.resize(); });
-
-init();
+(function(){
+'use strict';
+var GEO=window.GEOJSON,YEARS=[];for(var year=2012;year<=2020;year++)YEARS.push(String(year));
+var METRICS={
+ price:{label:'居住土地出让价格',unit:'元/㎡',note:'地价可按 2012—2020 年逐年查看，也可查看九年均值；零值按无有效成交数据处理。'},
+ AccSchool:{label:'上学可达性',unit:'可达性指数',note:'面向幼儿园、中小学和高中等教育设施；不含大学、驾校及成人培训。基于 2010 年 POI 与 2011 年省内交通效用计算。'},
+ AccWork:{label:'上班可达性',unit:'可达性指数',note:'面向公司企业、政府机构、办公园区及相关就业设施，基于 2010 年 POI 与 2011 年省内交通效用计算。'},
+ AccLeisure:{label:'休闲商业可达性',unit:'可达性指数',note:'面向餐饮、购物、生活服务、住宿、文体休闲和景点等设施，基于 2010 年 POI 与 2011 年省内交通效用计算。'}
+};
+var ACCESS_KEYS=['AccSchool','AccWork','AccLeisure'],COLORS=[[0,'#ffffcc'],[.2,'#ffeda0'],[.4,'#fed976'],[.6,'#fd8d3c'],[.8,'#e31a1c'],[1,'#800026']];
+var selected=[],selectedKeys={},maxSelected=12,currentRange=[0,1],geoLayer;
+var metricSelect=document.getElementById('metricSelect'),yearControls=document.getElementById('yearControls'),yearSlider=document.getElementById('yearSlider'),meanMode=document.getElementById('meanMode'),provinceFilter=document.getElementById('provinceFilter'),distributionProvince=document.getElementById('distributionProvince');
+var distributionChart=echarts.init(document.getElementById('distributionChart')),comparisonChart=echarts.init(document.getElementById('comparisonChart'));
+function props(f){return f.properties||{}}function currentMetric(){return metricSelect.value}function isPrice(){return currentMetric()==='price'}
+function priceValue(f,y){var v=Number(props(f)['P'+y]);return Number.isFinite(v)&&v>0?v:null}
+function meanPrice(f){var a=YEARS.map(function(y){return priceValue(f,y)}).filter(function(v){return v!==null});return a.length?a.reduce(function(x,y){return x+y},0)/a.length:null}
+function displayValue(f,m){m=m||currentMetric();if(m==='price')return meanMode.checked?meanPrice(f):priceValue(f,yearSlider.value);var v=Number(props(f)[m]);return Number.isFinite(v)?v:null}
+function featureKey(f){return[props(f)['省'],props(f)['市'],props(f)['县']].join('|')}function fullLabel(f){return[props(f)['省'],props(f)['市'],props(f)['县']].filter(Boolean).join(' · ')}function shortLabel(f){return props(f)['县']||'未命名区县'}
+function formatValue(v,m){if(v===null||!Number.isFinite(v))return'—';return m==='price'?Math.round(v).toLocaleString('zh-CN')+' 元/㎡':v.toFixed(3)}
+function percentile(a,p){if(!a.length)return null;var n=(a.length-1)*p,l=Math.floor(n),h=Math.ceil(n);return l===h?a[l]:a[l]+(a[h]-a[l])*(n-l)}
+function fiveNumber(values){var a=values.slice().sort(function(x,y){return x-y});return[percentile(a,0),percentile(a,.25),percentile(a,.5),percentile(a,.75),percentile(a,1)]}
+function availableFeatures(m){return GEO.features.filter(function(f){return displayValue(f,m)!==null})}
+function metricProvinces(m){var seen={};availableFeatures(m).forEach(function(f){seen[props(f)['省']]=true});return Object.keys(seen).sort(function(a,b){return a.localeCompare(b,'zh-CN')})}
+function hexRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+function mixColor(a,b,t){var x=hexRgb(a),y=hexRgb(b);return'rgb('+x.map(function(v,i){return Math.round(v+(y[i]-v)*t)}).join(',')+')'}
+function ramp(t){t=Math.max(0,Math.min(1,t));for(var i=1;i<COLORS.length;i++){if(t<=COLORS[i][0]){var a=COLORS[i-1],b=COLORS[i];return mixColor(a[1],b[1],(t-a[0])/(b[0]-a[0]))}}return COLORS[COLORS.length-1][1]}
+function updateRange(){var a=availableFeatures(currentMetric()).map(function(f){return displayValue(f)}).sort(function(x,y){return x-y});currentRange=a.length?[a[0],a[a.length-1]]:[0,1];if(currentRange[0]===currentRange[1])currentRange[1]=currentRange[0]+1}
+function normalized(v){var lo=currentRange[0],hi=currentRange[1];return isPrice()?(Math.log10(v)-Math.log10(lo))/(Math.log10(hi)-Math.log10(lo)):(v-lo)/(hi-lo)}
+function styleFeature(f){var p=provinceFilter.value,v=displayValue(f);if(p!=='全部'&&props(f)['省']!==p)return{color:'#fff',weight:.25,fillColor:'#e9edf0',fillOpacity:.28};if(v===null)return{color:'#aeb8be',weight:.3,fillColor:'#dfe4e7',fillOpacity:.48};return{color:'#5c6670',weight:.45,fillColor:ramp(normalized(v)),fillOpacity:.86}}
+function tooltipHtml(f){var m=currentMetric();return'<strong>'+shortLabel(f)+'</strong><br>'+METRICS[m].label+'：'+formatValue(displayValue(f,m),m)}
+function popupHtml(f){var p=props(f),h='<strong>'+fullLabel(f)+'</strong><br><table style="font-size:12px;margin-top:4px">';if(p.AdminCode)h+='<tr><td>行政区代码</td><td style="text-align:right;padding-left:12px">'+p.AdminCode+'</td></tr>';if(isPrice()){YEARS.forEach(function(y){h+='<tr><td>'+y+' 年</td><td style="text-align:right;padding-left:12px">'+formatValue(priceValue(f,y),'price')+'</td></tr>'});h+='<tr><td><strong>九年均值</strong></td><td style="text-align:right;padding-left:12px"><strong>'+formatValue(meanPrice(f),'price')+'</strong></td></tr>'}else ACCESS_KEYS.forEach(function(k){h+='<tr><td>'+METRICS[k].label+'</td><td style="text-align:right;padding-left:12px">'+formatValue(displayValue(f,k),k)+'</td></tr>'});return h+'</table>'}
+var map=L.map('map',{zoomControl:true}).setView([25.5,114.5],6);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:11,attribution:'© OpenStreetMap'}).addTo(map);
+function rebuildLayer(fit){updateRange();if(geoLayer)map.removeLayer(geoLayer);geoLayer=L.geoJSON(GEO,{style:styleFeature,onEachFeature:function(f,l){l.bindTooltip(function(){return tooltipHtml(f)},{sticky:true});l.bindPopup(function(){return popupHtml(f)});l.on('click',function(){toggleSelected(f)})}}).addTo(map);updateLegend();if(fit){var a=availableFeatures(currentMetric());if(a.length)map.fitBounds(L.geoJSON({type:'FeatureCollection',features:a}).getBounds().pad(.04))}}
+function recolor(){updateRange();if(geoLayer)geoLayer.setStyle(styleFeature);updateLegend()}
+function updateLegend(){var s=document.querySelectorAll('#legend .ticks span'),a=[];for(var i=0;i<6;i++){var r=i/5,v=isPrice()?Math.pow(10,Math.log10(currentRange[0])+(Math.log10(currentRange[1])-Math.log10(currentRange[0]))*r):currentRange[0]+(currentRange[1]-currentRange[0])*r;a.push(isPrice()?Math.round(v).toLocaleString('zh-CN'):v.toFixed(2))}s.forEach(function(x,i){x.textContent=a[i]})}
+function setSelectOptions(s,values){s.innerHTML='';['全部'].concat(values).forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o)});s.value='全部'}
+function refreshProvinceOptions(){var p=metricProvinces(currentMetric());setSelectOptions(provinceFilter,p);setSelectOptions(distributionProvince,p)}
+function toggleSelected(f){var k=featureKey(f);if(selectedKeys[k])removeSelected(k);else{if(selected.length>=maxSelected){alert('最多选择 '+maxSelected+' 个区县');return}selected.push(f);selectedKeys[k]=true}renderSelectedTags();renderComparisonChart();renderDistributionChart()}
+function removeSelected(k){selected=selected.filter(function(f){return featureKey(f)!==k});delete selectedKeys[k];renderSelectedTags();renderComparisonChart();renderDistributionChart()}
+function renderSelectedTags(){var b=document.getElementById('selectedCounties');if(!selected.length){b.innerHTML='<span class="hint">点击地图选择区县，最多选择 12 个。</span>';return}b.innerHTML='';selected.forEach(function(f){var t=document.createElement('span');t.className='county-tag';t.appendChild(document.createTextNode(shortLabel(f)));var x=document.createElement('button');x.type='button';x.setAttribute('aria-label','移除 '+shortLabel(f));x.textContent='×';x.onclick=function(){removeSelected(featureKey(f))};t.appendChild(x);b.appendChild(t)})}
+function formatAxis(v,u){return u==='元/㎡'?Math.round(v).toLocaleString('zh-CN'):Number(v).toFixed(3)}
+function baseOptions(cats,boxes,points,unit){return{animationDurationUpdate:350,tooltip:{trigger:'item',formatter:function(p){if(p.seriesType==='boxplot'){var d=p.data.value||p.data;return'<strong>'+cats[p.dataIndex]+'</strong><br>最小值：'+formatAxis(d[0],unit)+'<br>Q1：'+formatAxis(d[1],unit)+'<br>中位数：'+formatAxis(d[2],unit)+'<br>Q3：'+formatAxis(d[3],unit)+'<br>最大值：'+formatAxis(d[4],unit)+'<br>四分位距：'+formatAxis(d[3]-d[1],unit)}var r=p.data;return'<strong>'+r[2]+'</strong><br>'+formatAxis(r[1],unit)+(unit==='元/㎡'?' 元/㎡':'')}},grid:{left:66,right:18,top:24,bottom:58},xAxis:{type:'category',data:cats,axisLabel:{interval:0,rotate:cats.length>6?28:0,fontSize:11}},yAxis:{type:'value',name:unit,scale:true,nameGap:12,splitLine:{lineStyle:{color:'#e5eaed'}}},series:[{name:'分布',type:'boxplot',data:boxes,boxWidth:['35%','62%'],itemStyle:{color:'#f4c56a',borderColor:'#9b4c39'}},{name:'区县',type:'scatter',data:points,symbolSize:5,itemStyle:{color:'#176d96',opacity:.5}},{name:'已选择',type:'scatter',data:points.filter(function(d){return d[3]}),symbol:'diamond',symbolSize:11,itemStyle:{color:'#b2182b',opacity:1}}]}}
+function renderDistributionChart(){var m=currentMetric(),scope=distributionProvince.value,groups={};availableFeatures(m).forEach(function(f){var p=props(f)['省'];if(scope!=='全部'&&p!==scope)return;if(!groups[p])groups[p]=[];groups[p].push(f)});var cats=Object.keys(groups).sort(function(a,b){return a.localeCompare(b,'zh-CN')}),boxes=[],points=[];cats.forEach(function(p,i){var fs=groups[p],vs=fs.map(function(f){return displayValue(f,m)});boxes.push(fiveNumber(vs));fs.forEach(function(f){points.push([i,displayValue(f,m),fullLabel(f),!!selectedKeys[featureKey(f)]])})});document.getElementById('distributionTitle').textContent=METRICS[m].label+' · 区县离散程度（'+points.length+' 个区县）';if(!cats.length){distributionChart.clear();return}distributionChart.setOption(baseOptions(cats,boxes,points,METRICS[m].unit),true)}
+function renderComparisonChart(){var title=document.getElementById('comparisonTitle'),hint=document.getElementById('comparisonHint');if(isPrice()){title.textContent='所选区县 · 2012—2020 地价离散程度';hint.textContent='每个箱体汇总一个区县九年间的有效地价，散点代表各年份实际值。';if(!selected.length){comparisonChart.setOption({title:{text:'点击地图选择区县后显示',left:'center',top:'middle',textStyle:{fontSize:13,color:'#7d8a93',fontWeight:'normal'}},xAxis:{show:false},yAxis:{show:false},series:[]},true);return}var cats=[],boxes=[],points=[];selected.forEach(function(f){var vs=YEARS.map(function(y){return priceValue(f,y)}).filter(function(v){return v!==null});if(!vs.length)return;cats.push(shortLabel(f));boxes.push(fiveNumber(vs));YEARS.forEach(function(y){var v=priceValue(f,y);if(v!==null)points.push([cats.length-1,v,shortLabel(f)+' · '+y+' 年',false])})});if(!cats.length){comparisonChart.clear();return}comparisonChart.setOption(baseOptions(cats,boxes,points,'元/㎡'),true)}else{title.textContent='三类可达性 · 省内区县离散程度';hint.textContent='三项指标均为对数化可达性指数；并列箱体可直接比较离散范围。红色菱形标记地图中已选择的区县。';var ac=[],ab=[],ap=[];ACCESS_KEYS.forEach(function(m){['广东省','江西省'].forEach(function(p){var fs=GEO.features.filter(function(f){return props(f)['省']===p&&displayValue(f,m)!==null});if(!fs.length)return;var i=ac.length;ac.push(METRICS[m].label.replace('可达性','')+'·'+p.replace('省',''));ab.push(fiveNumber(fs.map(function(f){return displayValue(f,m)})));fs.forEach(function(f){ap.push([i,displayValue(f,m),fullLabel(f)+' · '+METRICS[m].label,!!selectedKeys[featureKey(f)]])})})});comparisonChart.setOption(baseOptions(ac,ab,ap,'可达性指数'),true)}}
+function updateMetricUI(fit){var m=currentMetric();yearControls.classList.toggle('hidden',m!=='price');document.getElementById('metricNote').textContent=METRICS[m].note;refreshProvinceOptions();rebuildLayer(fit);renderDistributionChart();renderComparisonChart()}
+function findCounty(){var q=document.getElementById('searchBox').value.trim();if(!q)return;var hit=availableFeatures(currentMetric()).find(function(f){var p=props(f);return String(p['县']||'').indexOf(q)>=0||String(p['市']||'').indexOf(q)>=0});if(!hit){alert('当前变量中未找到：'+q);return}map.flyToBounds(L.geoJSON(hit).getBounds().pad(.35),{maxZoom:10});toggleSelected(hit)}
+metricSelect.addEventListener('change',function(){updateMetricUI(true)});yearSlider.addEventListener('input',function(){document.getElementById('yearLabel').textContent=this.value;recolor();renderDistributionChart()});meanMode.addEventListener('change',function(){yearSlider.disabled=this.checked;recolor();renderDistributionChart()});
+provinceFilter.addEventListener('change',function(){recolor();var p=this.value;if(p!=='全部'){var fs=GEO.features.filter(function(f){return props(f)['省']===p&&displayValue(f)!==null});if(fs.length)map.fitBounds(L.geoJSON({type:'FeatureCollection',features:fs}).getBounds().pad(.08))}});distributionProvince.addEventListener('change',renderDistributionChart);
+document.getElementById('searchButton').addEventListener('click',findCounty);document.getElementById('searchBox').addEventListener('keydown',function(e){if(e.key==='Enter')findCounty()});document.getElementById('clearSelection').addEventListener('click',function(){selected=[];selectedKeys={};renderSelectedTags();renderDistributionChart();renderComparisonChart()});window.addEventListener('resize',function(){distributionChart.resize();comparisonChart.resize();map.invalidateSize()});
+updateMetricUI(true);
+})();
 </script>
 </body>
 </html>
-
-
-
